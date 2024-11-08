@@ -1,12 +1,12 @@
 #![allow(dead_code)]
 
-struct StrSplit<'a> {
-    remainder: Option<&'a str>,
-    delimiter: &'a str,
+struct StrSplit<'haystack, 'delimiter> {
+    remainder: Option<&'haystack str>,
+    delimiter: &'delimiter str,
 }
 
-impl<'a> StrSplit<'a> {
-    fn new(haystack: &'a str, delimiter: &'a str) -> Self {
+impl<'haystack, 'delimiter> StrSplit<'haystack, 'delimiter> {
+    fn new(haystack: &'haystack str, delimiter: &'delimiter str) -> Self {
         Self {
             remainder: Some(haystack),
             delimiter,
@@ -14,8 +14,8 @@ impl<'a> StrSplit<'a> {
     }
 }
 
-impl<'a> Iterator for StrSplit<'a> {
-    type Item = &'a str;
+impl<'haystack> Iterator for StrSplit<'haystack, '_> {
+    type Item = &'haystack str;
     fn next(&mut self) -> Option<Self::Item> {
         let remainder = self.remainder.as_mut()?;
         if let Some(next_delimiter) = remainder.find(self.delimiter) {
@@ -26,6 +26,17 @@ impl<'a> Iterator for StrSplit<'a> {
             self.remainder.take()
         }
     }
+}
+
+fn until_char(s: &str, c: char) -> &str {
+    StrSplit::new(s, &format!("{}", c))
+        .next()
+        .expect("StrSplit always has at least one element")
+}
+
+#[test]
+fn until_char_works() {
+    assert_eq!(until_char("hello, world", ','), "hello");
 }
 
 #[test]
