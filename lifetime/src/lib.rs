@@ -1,12 +1,36 @@
 #![allow(dead_code)]
 
-struct StrSplit<'haystack, 'delimiter> {
-    remainder: Option<&'haystack str>,
-    delimiter: &'delimiter str,
+trait Delimiter {
+    fn find_next(&self, s: &str) -> Option<(usize, usize)>;
 }
 
-impl<'haystack, 'delimiter> StrSplit<'haystack, 'delimiter> {
-    fn new(haystack: &'haystack str, delimiter: &'delimiter str) -> Self {
+impl Delimiter for &str {
+    fn find_next(&self, s: &str) -> Option<(usize, usize)> {
+        s.find(self).map(|start| (start, start + self.len()))
+    }
+}
+
+impl Delimiter for char {
+    fn find_next(&self, s: &str) -> Option<(usize, usize)> {
+        s.char_indices()
+            .find(|(_, c)| c == self)
+            .map(|(start, _)| (start, start + self.len_utf8()))
+    }
+}
+
+struct StrSplit<'haystack, D>
+where
+    D: Delimiter,
+{
+    remainder: Option<&'haystack str>,
+    delimiter: D,
+}
+
+impl<'haystack, D> StrSplit<'haystack, D>
+where
+    D: Delimiter,
+{
+    fn new(haystack: &'haystack str, delimiter: D) -> Self {
         Self {
             remainder: Some(haystack),
             delimiter,
@@ -14,13 +38,16 @@ impl<'haystack, 'delimiter> StrSplit<'haystack, 'delimiter> {
     }
 }
 
-impl<'haystack> Iterator for StrSplit<'haystack, '_> {
+impl<'haystack, D> Iterator for StrSplit<'haystack, D>
+where
+    D: Delimiter,
+{
     type Item = &'haystack str;
     fn next(&mut self) -> Option<Self::Item> {
         let remainder = self.remainder.as_mut()?;
-        if let Some(next_delimiter) = remainder.find(self.delimiter) {
-            let until_delimiter = &remainder[..next_delimiter];
-            *remainder = &remainder[next_delimiter + self.delimiter.len()..];
+        if let Some((start, end)) = self.delimiter.find_next(remainder) {
+            let until_delimiter = &remainder[..start];
+            *remainder = &remainder[end..];
             Some(until_delimiter)
         } else {
             self.remainder.take()
@@ -29,7 +56,7 @@ impl<'haystack> Iterator for StrSplit<'haystack, '_> {
 }
 
 fn until_char(s: &str, c: char) -> &str {
-    StrSplit::new(s, &format!("{}", c))
+    StrSplit::new(s, c)
         .next()
         .expect("StrSplit always has at least one element")
 }
