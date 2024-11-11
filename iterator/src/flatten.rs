@@ -1,14 +1,30 @@
-pub fn flatten<O>(iter: O) -> Flatten<O> {
+pub fn flatten<O>(iter: O) -> Flatten<O>
+where
+    O: Iterator,
+    O::Item: IntoIterator,
+{
     Flatten::new(iter)
 }
 
-pub struct Flatten<O> {
+pub struct Flatten<O>
+where
+    O: Iterator,
+    O::Item: IntoIterator,
+{
     outer: O,
+    inner: Option<<O::Item as IntoIterator>::IntoIter>,
 }
 
-impl<O> Flatten<O> {
+impl<O> Flatten<O>
+where
+    O: Iterator,
+    O::Item: IntoIterator,
+{
     pub fn new(iter: O) -> Self {
-        Self { outer: iter }
+        Self {
+            outer: iter,
+            inner: None,
+        }
     }
 }
 
@@ -19,7 +35,17 @@ where
 {
     type Item = <O::Item as IntoIterator>::Item;
     fn next(&mut self) -> Option<Self::Item> {
-        self.outer.next().and_then(|inner| inner.into_iter().next())
+        loop {
+            if let Some(ref mut inner) = self.inner {
+                if let Some(i) = inner.into_iter().next() {
+                    return Some(i);
+                }
+                self.inner = None
+            }
+
+            let next_inner_iter = self.outer.next()?.into_iter();
+            self.inner = Some(next_inner_iter);
+        }
     }
 }
 
